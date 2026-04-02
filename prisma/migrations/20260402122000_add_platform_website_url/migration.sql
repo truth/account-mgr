@@ -1,0 +1,1 @@
+ALTER TABLE `Platform` ADD COLUMN `websiteUrl` VARCHAR(191) NULL;

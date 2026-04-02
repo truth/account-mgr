@@ -1,13 +1,6 @@
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
-}
-
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+  --background: #f5f7fb;
+  --foreground: #1f2937;
 }
 
 html {
@@ -22,11 +15,9 @@ body {
 
 body {
   min-height: 100%;
-  display: flex;
-  flex-direction: column;
   color: var(--foreground);
   background: var(--background);
-  font-family: Arial, Helvetica, sans-serif;
+  font-family: var(--font-geist-sans), sans-serif;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
 }
@@ -42,8 +33,18 @@ a {
   text-decoration: none;
 }
 
-@media (prefers-color-scheme: dark) {
-  html {
-    color-scheme: dark;
-  }
+button,
+input,
+textarea,
+select {
+  font: inherit;
+}
+
+main {
+  min-height: 100vh;
+}
+
+.page-shell {
+  min-height: 100vh;
+  background: #f5f7fb;
 }

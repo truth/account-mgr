@@ -1,0 +1,74 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "mysql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id           String           @id @default(cuid())
+  email        String           @unique
+  passwordHash String
+  createdAt    DateTime         @default(now())
+  updatedAt    DateTime         @updatedAt
+  sessions     Session[]
+  platforms    Platform[]
+  accounts     ManagedAccount[]
+}
+
+model Platform {
+  id         String           @id @default(cuid())
+  userId     String
+  name       String
+  websiteUrl String?
+  createdAt  DateTime         @default(now())
+  updatedAt  DateTime         @updatedAt
+  user       User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  accounts   ManagedAccount[]
+
+  @@unique([userId, name])
+  @@index([userId])
+}
+
+model Session {
+  id        String   @id @default(cuid())
+  userId    String
+  tokenHash String   @unique
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+  lastUsedAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([expiresAt])
+}
+
+model ManagedAccount {
+  id                        String   @id @default(cuid())
+  ownerUserId               String
+  platformId                String?
+  siteName                  String
+  websiteUrl                String?
+  username                  String
+  encryptedPassword         String   @db.LongText
+  passwordIv                String
+  passwordAuthTag           String
+  passwordKeyVersion        Int
+  notes                     String?  @db.Text
+  registrationInfo          String?  @db.Text
+  tags                      String?  @db.Text
+  isFavorite                Boolean  @default(false)
+  createdAt                 DateTime @default(now())
+  updatedAt                 DateTime @updatedAt
+
+  owner    User      @relation(fields: [ownerUserId], references: [id], onDelete: Cascade)
+  platform Platform? @relation(fields: [platformId], references: [id], onDelete: Restrict)
+
+  @@index([ownerUserId])
+  @@index([platformId])
+  @@index([siteName])
+  @@index([username])
+}

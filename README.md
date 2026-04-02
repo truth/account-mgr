@@ -1,36 +1,112 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Account Vault Manager
 
-## Getting Started
+基于 **Next.js 16 + Ant Design + Prisma + MySQL** 的账号管理系统 MVP，用于安全保存网站账号、密码、备注和注册关联信息，并提供未来桌面客户端可复用的 API。
 
-First, run the development server:
+## MVP 功能
+
+- 管理员登录与 Cookie 会话
+- 账号条目增删改查
+- 密码字段服务端 AES-256-GCM 加密存储
+- 账号列表默认仅展示掩码密码
+- 单独明文查看接口，便于未来补充审计逻辑
+- `/api/auth/*` 与 `/api/accounts/*` 风格的 API
+
+## 环境变量
+
+创建 `.env` 文件并至少提供以下变量：
 
 ```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+DATABASE_URL="mysql://user:password@127.0.0.1:3306/account_mgr"
+APP_SECRET="12345678901234567890123456789012"
+MASTER_KEY="<32字节密钥的base64编码>"
+SESSION_COOKIE_NAME="account_mgr_session"
+SESSION_TTL_HOURS="24"
+ADMIN_EMAIL="admin@example.com"
+ADMIN_PASSWORD="change-this-password"
+NEXT_PUBLIC_APP_URL="http://localhost:3000"
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+生成一个 32 字节的 `MASTER_KEY` 示例：
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+```bash
+node -e "console.log(require('crypto').randomBytes(32).toString('base64'))"
+```
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+## 启动方式
 
-## Learn More
+```bash
+npm install
+npx prisma generate
+npx prisma migrate dev --name init
+npx prisma db seed
+npm run dev
+```
 
-To learn more about Next.js, take a look at the following resources:
+访问 `http://localhost:3000/login` 登录系统。
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+## 验证命令
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+```bash
+npm run test
+npm run lint
+npm run build
+```
 
-## Deploy on Vercel
+## Docker 打包与 GitHub Actions 部署
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+仓库已提供以下部署基础文件：
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+- `Dockerfile`
+- `.dockerignore`
+- `deploy/compose.production.yml`
+- `deploy/.env.production.example`
+- `.github/workflows/docker-deploy.yml`
+
+默认流程：
+
+1. GitHub Actions 运行测试与构建
+2. 将镜像推送到 `ghcr.io/<owner>/account-mgr`
+3. 执行 `npx prisma migrate deploy`
+4. 通过 SSH 在远端 Docker 主机上执行 `docker compose up -d`
+
+运行中的容器会通过 `/opt/account-mgr/.env.production` 注入运行时变量，**数据库地址 `DATABASE_URL` 也必须通过这里注入**，不要写进镜像、Dockerfile、compose 文件或 build args。
+
+生产环境至少需要这些 GitHub Secrets：
+
+- `DATABASE_URL`
+- `APP_SECRET`
+- `MASTER_KEY`
+- `DEPLOY_HOST`
+- `DEPLOY_USER`
+- `SSH_PRIVATE_KEY`
+- `DEPLOY_PORT`（可选）
+
+远端主机需预先准备：
+
+- `/opt/account-mgr/.env.production`
+- 已安装 `docker` 与 `docker compose`
+
+可以从仓库中的 `deploy/.env.production.example` 复制出初始模板，再替换成真实值。
+
+> 注意：数据库迁移在 GitHub Actions 的独立 job 中执行，不在容器启动时执行。
+
+## API 概览
+
+- `POST /api/auth/login`：登录
+- `POST /api/auth/logout`：退出登录
+- `GET /api/auth/session`：读取当前会话
+- `GET /api/accounts`：获取账号列表
+- `POST /api/accounts`：创建账号
+- `GET /api/accounts/:accountId`：读取账号详情
+- `PATCH /api/accounts/:accountId`：更新账号
+- `DELETE /api/accounts/:accountId`：删除账号
+- `POST /api/accounts/:accountId?action=reveal`：显示明文密码
+
+## 安全边界说明
+
+- 明文密码不入库
+- 列表页不返回明文密码
+- 密钥仅保存在服务端环境变量
+- 会话 token 只保存哈希值到数据库
+
+你如果后面真要接桌面端，不要再另搞一套业务逻辑，直接复用 `src/lib/server/*` 里的服务层和现有 JSON API。
