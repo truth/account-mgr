@@ -1,17 +1,16 @@
 import { Prisma } from "@prisma/client";
 
 import { db } from "@/lib/db";
+import defaultPlatformsConfig from "@/config/default-platforms.json";
 
-export const DEFAULT_PLATFORM_NAMES = ["github", "cloudflare", "railway.com", "google", "tidbcloud"] as const;
+const defaultPlatforms = defaultPlatformsConfig.defaults;
+
+export const DEFAULT_PLATFORM_NAMES = defaultPlatforms.map((platform) => platform.name);
 export const IMPORTED_PLATFORM_NAME = "Imported";
 
-const DEFAULT_PLATFORM_WEBSITES: Record<(typeof DEFAULT_PLATFORM_NAMES)[number], string> = {
-  github: "https://github.com",
-  cloudflare: "https://dash.cloudflare.com",
-  "railway.com": "https://railway.com",
-  google: "https://accounts.google.com",
-  tidbcloud: "https://tidbcloud.com",
-};
+const DEFAULT_PLATFORM_WEBSITES = Object.fromEntries(
+  defaultPlatforms.map((platform) => [platform.name, platform.websiteUrl]),
+) satisfies Record<string, string>;
 
 type PlatformRecord = {
   id: string;
