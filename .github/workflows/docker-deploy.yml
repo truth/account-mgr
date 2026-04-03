@@ -77,40 +77,9 @@ jobs:
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
 
-  migrate:
-    if: github.event_name != 'pull_request'
-    needs: docker-publish
-    runs-on: ubuntu-latest
-    environment: production
-    env:
-      # Production migration uses GitHub environment secrets, not image build args.
-      DATABASE_URL: ${{ secrets.DATABASE_URL }}
-      APP_SECRET: ${{ secrets.APP_SECRET }}
-      MASTER_KEY: ${{ secrets.MASTER_KEY }}
-      SESSION_COOKIE_NAME: account_mgr_session
-      SESSION_TTL_HOURS: 24
-      ADMIN_EMAIL: admin@example.com
-      ADMIN_PASSWORD: change-this-password
-      NEXT_PUBLIC_APP_URL: http://localhost:3000
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Setup Node
-        uses: actions/setup-node@v4
-        with:
-          node-version: 22
-          cache: npm
-
-      - name: Install dependencies
-        run: npm ci
-
-      - name: Apply Prisma migrations
-        run: npx prisma migrate deploy
-
   deploy:
     if: github.event_name != 'pull_request'
-    needs: migrate
+    needs: docker-publish
     runs-on: ubuntu-latest
     environment: production
     steps:
@@ -154,5 +123,6 @@ jobs:
             docker login ghcr.io -u ${{ github.actor }} -p ${{ secrets.GITHUB_TOKEN }}
             # Runtime variables such as DATABASE_URL are injected from /opt/account-mgr/.env.production.
             docker compose --env-file /opt/account-mgr/.deploy.env -f /opt/account-mgr/compose.production.yml pull
-            docker compose --env-file /opt/account-mgr/.deploy.env -f /opt/account-mgr/compose.production.yml up -d --remove-orphans
+            docker compose --env-file /opt/account-mgr/.deploy.env -f /opt/account-mgr/compose.production.yml up --abort-on-container-exit --exit-code-from account-mgr-init account-mgr-init
+            docker compose --env-file /opt/account-mgr/.deploy.env -f /opt/account-mgr/compose.production.yml up -d --remove-orphans account-mgr
             docker inspect account-mgr --format='{{.State.Running}}'

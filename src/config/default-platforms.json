@@ -1,0 +1,24 @@
+{
+  "defaults": [
+    {
+      "name": "github",
+      "websiteUrl": "https://github.com"
+    },
+    {
+      "name": "cloudflare",
+      "websiteUrl": "https://dash.cloudflare.com"
+    },
+    {
+      "name": "railway.com",
+      "websiteUrl": "https://railway.com"
+    },
+    {
+      "name": "google",
+      "websiteUrl": "https://accounts.google.com"
+    },
+    {
+      "name": "tidbcloud",
+      "websiteUrl": "https://tidbcloud.com"
+    }
+  ]
+}

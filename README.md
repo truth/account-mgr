@@ -66,16 +66,13 @@ npm run build
 
 1. GitHub Actions 运行测试与构建
 2. 将镜像推送到 `ghcr.io/<owner>/account-mgr`
-3. 执行 `npx prisma migrate deploy`
-4. 通过 SSH 在远端 Docker 主机上执行 `docker compose up -d`
+3. 通过 SSH 在远端 Docker 主机上执行 `docker compose` 一次性 init（迁移 + 幂等 bootstrap）
+4. init 成功后再启动应用容器
 
 运行中的容器会通过 `/opt/account-mgr/.env.production` 注入运行时变量，**数据库地址 `DATABASE_URL` 也必须通过这里注入**，不要写进镜像、Dockerfile、compose 文件或 build args。
 
-生产环境至少需要这些 GitHub Secrets：
+生产环境部署至少需要这些 GitHub Secrets（用于 SSH 发布）：
 
-- `DATABASE_URL`
-- `APP_SECRET`
-- `MASTER_KEY`
 - `DEPLOY_HOST`
 - `DEPLOY_USER`
 - `SSH_PRIVATE_KEY`
@@ -86,9 +83,11 @@ npm run build
 - `/opt/account-mgr/.env.production`
 - 已安装 `docker` 与 `docker compose`
 
+其中 `/opt/account-mgr/.env.production` 需要包含运行时变量（例如 `DATABASE_URL`、`APP_SECRET`、`MASTER_KEY`、`ADMIN_EMAIL`、`ADMIN_PASSWORD` 等）。
+
 可以从仓库中的 `deploy/.env.production.example` 复制出初始模板，再替换成真实值。
 
-> 注意：数据库迁移在 GitHub Actions 的独立 job 中执行，不在容器启动时执行。
+> 注意：生产迁移与初始引导由 `account-mgr-init` 一次性容器执行（`prisma migrate deploy` + 幂等 bootstrap）。应用容器本身不会在正常启动命令里执行 schema 变更。
 
 ## API 概览
 

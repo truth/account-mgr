@@ -1,9 +1,20 @@
 services:
+  account-mgr-init:
+    image: ${IMAGE_NAME}
+    container_name: account-mgr-init
+    restart: "no"
+    env_file:
+      - /opt/account-mgr/.env.production
+    command: ["node", "scripts/runtime-init.mjs"]
+
   account-mgr:
     image: ${IMAGE_NAME}
     container_name: account-mgr
     restart: unless-stopped
     env_file:
       - /opt/account-mgr/.env.production
+    depends_on:
+      account-mgr-init:
+        condition: service_completed_successfully
     ports:
       - "3000:3000"
