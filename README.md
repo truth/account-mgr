@@ -58,36 +58,45 @@ npm run build
 
 - `Dockerfile`
 - `.dockerignore`
-- `deploy/compose.production.yml`
-- `deploy/.env.production.example`
 - `.github/workflows/docker-deploy.yml`
 
 默认流程：
 
 1. GitHub Actions 运行测试与构建
 2. 将镜像推送到 `ghcr.io/<owner>/account-mgr`
-3. 通过 SSH 在远端 Docker 主机上执行 `docker compose` 一次性 init（迁移 + 幂等 bootstrap）
-4. init 成功后再启动应用容器
 
-运行中的容器会通过 `/opt/account-mgr/.env.production` 注入运行时变量，**数据库地址 `DATABASE_URL` 也必须通过这里注入**，不要写进镜像、Dockerfile、compose 文件或 build args。
+当前仓库内置的 GitHub Actions 只负责 **构建、测试并发布镜像到 GHCR**，不会再通过 SSH 自动部署到你自己的服务器。
 
-生产环境部署至少需要这些 GitHub Secrets（用于 SSH 发布）：
+镜像会推送到：
 
-- `DEPLOY_HOST`
-- `DEPLOY_USER`
-- `SSH_PRIVATE_KEY`
-- `DEPLOY_PORT`（可选）
+- `ghcr.io/<owner>/account-mgr:sha-<commit>`
+- `ghcr.io/<owner>/account-mgr:latest`（默认分支）
 
-远端主机需预先准备：
+运行中的数据库地址 `DATABASE_URL`、应用密钥等仍然应该通过你的运行环境自行注入，不要写进镜像、Dockerfile 或 build args。
 
-- `/opt/account-mgr/.env.production`
-- 已安装 `docker` 与 `docker compose`
+如果你后续需要把 GHCR 镜像部署到自己的服务器、Koyeb、Railway 或其他平台，建议在各自平台的部署配置里单独处理运行时环境变量和数据库迁移。
 
-其中 `/opt/account-mgr/.env.production` 需要包含运行时变量（例如 `DATABASE_URL`、`APP_SECRET`、`MASTER_KEY`、`ADMIN_EMAIL`、`ADMIN_PASSWORD` 等）。
+如果你使用的是 TiDB Cloud、PlanetScale、云厂商托管 MySQL/Postgres 等 **启用 TLS 的数据库**，运行镜像还需要具备基础 TLS 运行时能力：
 
-可以从仓库中的 `deploy/.env.production.example` 复制出初始模板，再替换成真实值。
+- 当前 `Dockerfile` 已在运行镜像安装 `openssl` 与 `ca-certificates`
+- 如果数据库使用平台专用 CA 或私有 CA，还需要把根证书导入运行环境，或通过 `NODE_EXTRA_CA_CERTS` 指向额外的 CA PEM 文件
+- 不要把关闭证书校验当成正式方案；应优先修复容器信任链和数据库 TLS 配置
 
-> 注意：生产迁移与初始引导由 `account-mgr-init` 一次性容器执行（`prisma migrate deploy` + 幂等 bootstrap）。应用容器本身不会在正常启动命令里执行 schema 变更。
+对于只方便配置环境变量的部署平台，可以额外提供：
+
+- `DB_CA_CERT_BASE64`：数据库根证书 PEM 文件的 base64 内容
+
+容器启动时会自动把 `DB_CA_CERT_BASE64` 解码为 PEM 文件，并设置 `NODE_EXTRA_CA_CERTS`，用于 Prisma/Node 在 TLS 握手时补充信任链。生成 base64 的示例：
+
+```bash
+base64 -w 0 db-ca.pem
+```
+
+如果你在 Windows PowerShell 中生成：
+
+```powershell
+[Convert]::ToBase64String([IO.File]::ReadAllBytes("db-ca.pem"))
+```
 
 ## API 概览
 
