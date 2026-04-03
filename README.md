@@ -42,6 +42,14 @@ npx prisma db seed
 npm run dev
 ```
 
+当前仓库已使用根目录的 `prisma.config.ts` 管理 Prisma CLI 配置。
+
+- `prisma/schema.prisma`：数据库 schema 与 Prisma Client 生成配置
+- `prisma/migrations`：迁移文件目录
+- `prisma/seed.ts`：`npx prisma db seed` 实际执行的种子脚本
+
+`npx prisma generate`、`npx prisma migrate dev --name init`、`npx prisma migrate deploy` 与 `npx prisma db seed` 都会读取这份配置。Docker 运行镜像也会携带 `prisma.config.ts`，以确保容器内的 Prisma CLI 行为与本地一致。
+
 访问 `http://localhost:3000/login` 登录系统。
 
 ## 验证命令
@@ -63,9 +71,12 @@ npm run build
 默认流程：
 
 1. GitHub Actions 运行测试与构建
-2. 将镜像推送到 `ghcr.io/<owner>/account-mgr`
+2. 使用 `linux/amd64` 构建 Docker 镜像
+3. 将镜像推送到 `ghcr.io/<owner>/account-mgr`
 
 当前仓库内置的 GitHub Actions 只负责 **构建、测试并发布镜像到 GHCR**，不会再通过 SSH 自动部署到你自己的服务器。
+
+Prisma Docker 构建还会在 builder 阶段显式执行 `npx prisma generate`，并校验 `debian-openssl-3.0.x` 对应的 Query Engine 已经生成。这样可以尽早发现构建环境与运行环境不匹配的问题，而不是等容器启动后再报 Prisma engine 缺失。
 
 镜像会推送到：
 
