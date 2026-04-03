@@ -4,7 +4,7 @@ on:
   pull_request:
   push:
     branches:
-      - main
+      - master
   workflow_dispatch:
 
 jobs:
@@ -76,53 +76,3 @@ jobs:
           push: true
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
-
-  deploy:
-    if: github.event_name != 'pull_request'
-    needs: docker-publish
-    runs-on: ubuntu-latest
-    environment: production
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Copy compose file to server
-        uses: appleboy/scp-action@v0.1.7
-        with:
-          host: ${{ secrets.DEPLOY_HOST }}
-          username: ${{ secrets.DEPLOY_USER }}
-          key: ${{ secrets.SSH_PRIVATE_KEY }}
-          port: ${{ secrets.DEPLOY_PORT || 22 }}
-          source: deploy/compose.production.yml
-          target: /opt/account-mgr
-          strip_components: 1
-
-      - name: Verify required runtime env file exists on server
-        uses: appleboy/ssh-action@v1.0.3
-        with:
-          host: ${{ secrets.DEPLOY_HOST }}
-          username: ${{ secrets.DEPLOY_USER }}
-          key: ${{ secrets.SSH_PRIVATE_KEY }}
-          port: ${{ secrets.DEPLOY_PORT || 22 }}
-          script: |
-            test -f /opt/account-mgr/.env.production
-
-      - name: Deploy on server
-        uses: appleboy/ssh-action@v1.0.3
-        env:
-          IMAGE_NAME: ghcr.io/${{ github.repository_owner }}/account-mgr:sha-${{ github.sha }}
-        with:
-          host: ${{ secrets.DEPLOY_HOST }}
-          username: ${{ secrets.DEPLOY_USER }}
-          key: ${{ secrets.SSH_PRIVATE_KEY }}
-          port: ${{ secrets.DEPLOY_PORT || 22 }}
-          envs: IMAGE_NAME
-          script: |
-            mkdir -p /opt/account-mgr
-            echo "IMAGE_NAME=${IMAGE_NAME}" > /opt/account-mgr/.deploy.env
-            docker login ghcr.io -u ${{ github.actor }} -p ${{ secrets.GITHUB_TOKEN }}
-            # Runtime variables such as DATABASE_URL are injected from /opt/account-mgr/.env.production.
-            docker compose --env-file /opt/account-mgr/.deploy.env -f /opt/account-mgr/compose.production.yml pull
-            docker compose --env-file /opt/account-mgr/.deploy.env -f /opt/account-mgr/compose.production.yml up --abort-on-container-exit --exit-code-from account-mgr-init account-mgr-init
-            docker compose --env-file /opt/account-mgr/.deploy.env -f /opt/account-mgr/compose.production.yml up -d --remove-orphans account-mgr
-            docker inspect account-mgr --format='{{.State.Running}}'
