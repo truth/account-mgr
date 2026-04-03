@@ -40,7 +40,7 @@ jobs:
         run: npm run build
 
       - name: Build Docker image
-        run: docker build -t account-mgr:test .
+        run: docker build --platform linux/amd64 -t account-mgr:test .
 
   docker-publish:
     if: github.event_name != 'pull_request'
@@ -73,6 +73,7 @@ jobs:
         uses: docker/build-push-action@v6
         with:
           context: .
+          platforms: linux/amd64
           push: true
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
